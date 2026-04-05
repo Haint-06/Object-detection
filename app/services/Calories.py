@@ -1,7 +1,6 @@
 
 import os
 
-from openai import images
 import torch
 from pathlib import Path
 import open_clip
