@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CalorieCLIP — Phân tích calo thực phẩm</title>
+  <meta name="description" content="Tải ảnh món ăn lên và để AI ước tính lượng calo cho bạn." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+
+  <style>
+    /* ── Reset & Base ─────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:         #FAF9F6;        /* kem nhạt */
+      --surface:    #FFFFFF;
+      --accent:     #A8CFBD;        /* mint xanh nhạt */
+      --accent-mid: #7EB8A0;        /* mint đậm hơn — hover, focus */
+      --accent-pale:#E8F5EF;        /* mint rất nhạt — nền zone */
+      --text:       #4A4A4A;        /* xám đậm, không black thuần */
+      --text-soft:  #9A9A9A;        /* xám nhạt — placeholder */
+      --border:     #D4EAE0;        /* mint nhạt — viền */
+      --shadow:     rgba(168, 207, 189, 0.18);
+      --radius:     16px;
+      --font:       'Inter', sans-serif;
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      font-family: var(--font);
+      color: var(--text);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Layout ───────────────────────────────────────────────── */
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 60px 20px 80px;
+      min-height: 100vh;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 620px;
+      display: flex;
+      flex-direction: column;
+      gap: 32px;
+    }
+
+    /* ── Header ───────────────────────────────────────────────── */
+    header {
+      text-align: center;
+      margin-bottom: 4px;
+    }
+
+    header .logo {
+      font-size: 13px;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--accent-mid);
+    }
+
+    header h1 {
+      font-size: 28px;
+      font-weight: 600;
+      color: var(--text);
+      margin-top: 6px;
+      letter-spacing: -0.3px;
+    }
+
+    header p {
+      font-size: 14px;
+      color: var(--text-soft);
+      margin-top: 8px;
+      font-weight: 400;
+      line-height: 1.6;
+    }
+
+    /* ── Upload Zone ──────────────────────────────────────────── */
+    .upload-zone {
+      width: 100%;
+      min-height: 260px;
+      background: var(--surface);
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      cursor: pointer;
+      transition: border-color 0.25s ease, background 0.25s ease, box-shadow 0.25s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .upload-zone:hover,
+    .upload-zone.drag-over {
+      border-color: var(--accent-mid);
+      background: var(--accent-pale);
+      box-shadow: 0 0 0 6px var(--shadow);
+    }
+
+    /* Hidden file input */
+    #fileInput {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Upload icon */
+    .upload-icon {
+      width: 52px;
+      height: 52px;
+      color: var(--accent);
+      transition: color 0.25s ease, transform 0.25s ease;
+    }
+    .upload-zone:hover .upload-icon {
+      color: var(--accent-mid);
+      transform: translateY(-3px);
+    }
+
+    .upload-label {
+      font-size: 15px;
+      font-weight: 500;
+      color: var(--text);
+      text-align: center;
+      pointer-events: none;
+    }
+
+    .upload-sublabel {
+      font-size: 13px;
+      color: var(--text-soft);
+      pointer-events: none;
+    }
+
+    /* ── Preview (shown after image selected) ─────────────────── */
+    .preview-wrap {
+      width: 100%;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .preview-wrap.visible { display: flex; }
+
+    .preview-img-container {
+      width: 100%;
+      border-radius: var(--radius);
+      overflow: hidden;
+      border: 1.5px solid var(--border);
+      background: var(--accent-pale);
+      max-height: 320px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #previewImg {
+      width: 100%;
+      max-height: 320px;
+      object-fit: contain;
+      display: block;
+    }
+
+    /* Change image button */
+    .btn-change {
+      font-family: var(--font);
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-soft);
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 100px;
+      padding: 7px 18px;
+      cursor: pointer;
+      transition: border-color 0.2s, color 0.2s;
+    }
+    .btn-change:hover { border-color: var(--accent-mid); color: var(--accent-mid); }
+
+    /* ── Submit Button ────────────────────────────────────────── */
+    .btn-submit {
+      width: 100%;
+      padding: 15px;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: var(--radius);
+      font-family: var(--font);
+      font-size: 15px;
+      font-weight: 500;
+      cursor: pointer;
+      letter-spacing: 0.01em;
+      transition: background 0.22s ease, transform 0.15s ease, opacity 0.2s;
+      display: none;
+    }
+    .btn-submit.visible { display: block; }
+    .btn-submit:hover   { background: var(--accent-mid); transform: translateY(-1px); }
+    .btn-submit:active  { transform: translateY(0); }
+    .btn-submit:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+    /* ── Divider ──────────────────────────────────────────────── */
+    .divider {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      color: var(--text-soft);
+      font-size: 12px;
+      letter-spacing: 0.05em;
+    }
+    .divider::before, .divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    /* ── AI Response Box ──────────────────────────────────────── */
+    .response-section { display: flex; flex-direction: column; gap: 10px; }
+
+    .response-label {
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-soft);
+    }
+
+    .response-box {
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px 28px;
+      min-height: 130px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: border-color 0.3s ease;
+    }
+
+    .response-box.has-result { align-items: flex-start; justify-content: flex-start; }
+
+    /* Placeholder text inside the response box */
+    .response-placeholder {
+      font-size: 14px;
+      color: var(--text-soft);
+      text-align: center;
+      line-height: 1.7;
+    }
+
+    /* Actual result content */
+    .result-content { display: none; width: 100%; }
+    .result-content.visible { display: block; }
+
+    .result-food-name {
+      font-size: 20px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .result-food-name .food-pill {
+      font-size: 11px;
+      font-weight: 500;
+      background: var(--accent-pale);
+      color: var(--accent-mid);
+      border-radius: 100px;
+      padding: 3px 10px;
+      letter-spacing: 0.05em;
+    }
+
+    .result-calories {
+      font-size: 40px;
+      font-weight: 300;
+      color: var(--accent-mid);
+      letter-spacing: -1px;
+      line-height: 1;
+      margin-top: 10px;
+    }
+    .result-calories span.unit {
+      font-size: 16px;
+      font-weight: 400;
+      color: var(--text-soft);
+      margin-left: 6px;
+    }
+
+    .result-note {
+      font-size: 12px;
+      color: var(--text-soft);
+      margin-top: 12px;
+      line-height: 1.6;
+    }
+
+    /* ── Loading animation ────────────────────────────────────── */
+    .loading-wrap {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+    }
+    .loading-wrap.visible { display: flex; }
+
+    .loading-dots {
+      display: flex;
+      gap: 8px;
+    }
+    .loading-dots span {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--accent);
+      animation: pulse-dot 1.2s ease-in-out infinite;
+    }
+    .loading-dots span:nth-child(2) { animation-delay: 0.2s; }
+    .loading-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+    @keyframes pulse-dot {
+      0%, 80%, 100% { transform: scale(0.7); opacity: 0.4; }
+      40%           { transform: scale(1.1); opacity: 1;   }
+    }
+
+    .loading-text {
+      font-size: 13px;
+      color: var(--text-soft);
+    }
+
+    /* ── Error state ──────────────────────────────────────────── */
+    .error-text {
+      font-size: 14px;
+      color: #c0705a;
+      display: none;
+      text-align: center;
+    }
+    .error-text.visible { display: block; }
+
+    /* ── Footer ───────────────────────────────────────────────── */
+    footer {
+      margin-top: 20px;
+      font-size: 12px;
+      color: var(--text-soft);
+      text-align: center;
+      line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+
+  <!-- Header -->
+  <header>
+    <p class="logo">CalorieCLIP</p>
+    <h1>Phân tích calo thực phẩm</h1>
+    <p>Tải ảnh món ăn lên và để AI nhận diện&nbsp;&amp;&nbsp;ước tính lượng calo cho bạn.</p>
+  </header>
+
+  <!-- Upload Zone (shown before image selected) -->
+  <div class="upload-zone" id="uploadZone" role="button" aria-label="Tải ảnh lên">
+    <input type="file" id="fileInput" accept="image/*" aria-hidden="true" />
+
+    <!-- Cloud upload SVG icon -->
+    <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+         stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="16 16 12 12 8 16"/>
+      <line x1="12" y1="12" x2="12" y2="21"/>
+      <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/>
+    </svg>
+
+    <p class="upload-label">Kéo thả ảnh vào đây</p>
+    <p class="upload-sublabel">hoặc nhấp để chọn tệp · JPG, PNG, WEBP</p>
+  </div>
+
+  <!-- Preview (shown after image selected) -->
+  <div class="preview-wrap" id="previewWrap">
+    <div class="preview-img-container">
+      <img id="previewImg" src="" alt="Ảnh đã chọn" />
+    </div>
+    <button class="btn-change" id="btnChange">↩ Chọn ảnh khác</button>
+  </div>
+
+  <!-- Submit button -->
+  <button class="btn-submit" id="btnSubmit" disabled>
+    Phân tích calo →
+  </button>
+
+  <!-- Divider -->
+  <div class="divider">AI trả lời</div>
+
+  <!-- Response Section -->
+  <div class="response-section">
+    <div class="response-box" id="responseBox">
+
+      <!-- Placeholder -->
+      <p class="response-placeholder" id="responsePlaceholder">
+        Kết quả sẽ hiển thị ở đây<br/>sau khi bạn tải ảnh lên.
+      </p>
+
+      <!-- Loading -->
+      <div class="loading-wrap" id="loadingWrap">
+        <div class="loading-dots">
+          <span></span><span></span><span></span>
+        </div>
+        <p class="loading-text">Đang phân tích ảnh…</p>
+      </div>
+
+      <!-- Result -->
+      <div class="result-content" id="resultContent">
+        <div class="result-food-name">
+          <span id="resultFoodName">—</span>
+          <span class="food-pill">đã nhận diện</span>
+        </div>
+        <div class="result-calories">
+          <span id="resultCalories">—</span>
+          <span class="unit">kcal</span>
+        </div>
+        <p class="result-note">
+          * Đây là ước tính dựa trên hình ảnh. Lượng calo thực tế có thể thay đổi tùy<br/>
+          theo khẩu phần và cách chế biến.
+        </p>
+      </div>
+
+      <!-- Error -->
+      <p class="error-text" id="errorText"></p>
+
+    </div>
+  </div>
+
+</div><!-- end .container -->
+
+<footer>
+  CalorieCLIP · Ước tính calo bằng AI · Chỉ mang tính tham khảo
+</footer>
+
+<script>
+  // ── Config ──────────────────────────────────────────────────────────────
+  // Đổi URL này thành địa chỉ server của bạn khi backend đã chạy
+  const API_URL = "http://localhost:8000/predict";
+
+  // ── DOM refs ─────────────────────────────────────────────────────────────
+  const uploadZone        = document.getElementById("uploadZone");
+  const fileInput         = document.getElementById("fileInput");
+  const previewWrap       = document.getElementById("previewWrap");
+  const previewImg        = document.getElementById("previewImg");
+  const btnChange         = document.getElementById("btnChange");
+  const btnSubmit         = document.getElementById("btnSubmit");
+  const responseBox       = document.getElementById("responseBox");
+  const responsePlaceholder = document.getElementById("responsePlaceholder");
+  const loadingWrap       = document.getElementById("loadingWrap");
+  const resultContent     = document.getElementById("resultContent");
+  const resultFoodName    = document.getElementById("resultFoodName");
+  const resultCalories    = document.getElementById("resultCalories");
+  const errorText         = document.getElementById("errorText");
+
+  let selectedFile = null;
+
+  // ── State helpers ─────────────────────────────────────────────────────────
+  function showResponseState(state) {
+    // state: "placeholder" | "loading" | "result" | "error"
+    responsePlaceholder.style.display = "none";
+    loadingWrap.classList.remove("visible");
+    resultContent.classList.remove("visible");
+    errorText.classList.remove("visible");
+    responseBox.classList.remove("has-result");
+
+    if (state === "placeholder") {
+      responsePlaceholder.style.display = "block";
+    } else if (state === "loading") {
+      loadingWrap.classList.add("visible");
+    } else if (state === "result") {
+      resultContent.classList.add("visible");
+      responseBox.classList.add("has-result");
+    } else if (state === "error") {
+      errorText.classList.add("visible");
+    }
+  }
+
+  // ── Handle file selection ─────────────────────────────────────────────────
+  function handleFile(file) {
+    if (!file || !file.type.startsWith("image/")) {
+      alert("Vui lòng chọn tệp ảnh hợp lệ (JPG, PNG, WEBP…)");
+      return;
+    }
+
+    selectedFile = file;
+
+    // Show image preview
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      previewImg.src = e.target.result;
+      uploadZone.style.display = "none";
+      previewWrap.classList.add("visible");
+      btnSubmit.classList.add("visible");
+      btnSubmit.disabled = false;
+      showResponseState("placeholder");
+    };
+    reader.readAsDataURL(file);
+  }
+
+  // File input change
+  fileInput.addEventListener("change", () => {
+    if (fileInput.files.length > 0) handleFile(fileInput.files[0]);
+  });
+
+  // Click on upload zone triggers file input
+  uploadZone.addEventListener("click", (e) => {
+    if (e.target !== fileInput) fileInput.click();
+  });
+
+  // Drag and drop
+  uploadZone.addEventListener("dragover",  (e) => { e.preventDefault(); uploadZone.classList.add("drag-over"); });
+  uploadZone.addEventListener("dragleave", ()  => { uploadZone.classList.remove("drag-over"); });
+  uploadZone.addEventListener("drop",      (e) => {
+    e.preventDefault();
+    uploadZone.classList.remove("drag-over");
+    if (e.dataTransfer.files.length > 0) handleFile(e.dataTransfer.files[0]);
+  });
+
+  // ── Change image ──────────────────────────────────────────────────────────
+  btnChange.addEventListener("click", () => {
+    selectedFile = null;
+    fileInput.value = "";
+    previewImg.src  = "";
+    previewWrap.classList.remove("visible");
+    btnSubmit.classList.remove("visible");
+    btnSubmit.disabled = true;
+    uploadZone.style.display = "";
+    showResponseState("placeholder");
+  });
+
+  // ── Submit (send image to backend) ───────────────────────────────────────
+  btnSubmit.addEventListener("click", async () => {
+    if (!selectedFile) return;
+
+    // UI: loading state
+    btnSubmit.disabled = true;
+    btnSubmit.textContent = "Đang phân tích…";
+    showResponseState("loading");
+
+    try {
+      // Build multipart form — field name "file" matches FastAPI endpoint
+      const form = new FormData();
+      form.append("file", selectedFile);
+
+      const response = await fetch(API_URL, { method: "POST", body: form });
+
+      if (!response.ok) {
+        const detail = await response.json().catch(() => ({}));
+        throw new Error(detail.detail || `Lỗi server: ${response.status}`);
+      }
+
+      // Expected: { "food": "Greek Salad", "calories": 494.8, "unit": "kcal" }
+      const data = await response.json();
+
+      resultFoodName.textContent  = data.food     ?? "Không xác định";
+      resultCalories.textContent  = data.calories != null
+        ? Number(data.calories).toFixed(1)
+        : "—";
+
+      showResponseState("result");
+
+    } catch (err) {
+      // Friendly error message in Vietnamese
+      if (err.message.includes("Failed to fetch") || err.message.includes("NetworkError")) {
+        errorText.textContent = "⚠ Không kết nối được đến server. Vui lòng kiểm tra backend đang chạy tại " + API_URL;
+      } else {
+        errorText.textContent = "⚠ " + err.message;
+      }
+      showResponseState("error");
+    } finally {
+      // Restore button
+      btnSubmit.disabled = false;
+      btnSubmit.textContent = "Phân tích calo →";
+    }
+  });
+
+  // ── Init ─────────────────────────────────────────────────────────────────
+  showResponseState("placeholder");
+</script>
+</body>
+</html>
