@@ -8,7 +8,11 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from PIL import Image
 
-from app.services.Calories import load_model
+from app.services.Calories import CalorieCLIP
+
+# Đường dẫn tuyệt đối tính từ vị trí file này — .resolve() đảm bảo không bao giờ là relative path
+_HERE    = Path(__file__).resolve().parent          # e:\Code\Project\app\
+_WEIGHTS = _HERE / "services" / "weights" / "calorie_clip.pt"
 
 # ── Tải mô hình một lần khi server khởi động ──────────────────────────────
 model = None
@@ -18,7 +22,7 @@ async def lifespan(app: FastAPI):
     global model
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"\n[CalorieCLIP] Đang tải mô hình trên {device}...")
-    model = load_model(device=device)
+    model = CalorieCLIP.from_pretrained(model_path=_WEIGHTS, device=device)
     print("[CalorieCLIP] Sẵn sàng! Truy cập http://localhost:8000\n")
     yield
 

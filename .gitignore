@@ -1,9 +1,4 @@
-<<<<<<< HEAD
-weights/*pt
-=======
-weights/
-*pt
-
-__pycache__/
-*.pyc
->>>>>>> e09fef970b7439ad277e748102846194bef2ddae
+app/services/weights/*pt
+app/services/__pycache__
+app/__pycache__
+app/static/__pycache__

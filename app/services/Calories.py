@@ -112,10 +112,12 @@ class CalorieCLIP(nn.Module):
         # ── Xác định đường dẫn checkpoint ───────────────────────────────────
         if model_path is None:
             # Mặc định: tìm file trong thư mục weights/ cùng thư mục với file này
-            services_dir = Path(os.path.dirname(os.path.abspath(__file__)))
+            services_dir = Path(os.path.dirname(os.path.abspath(__file__))).resolve()
             model_path = services_dir / "weights" / "calorie_clip.pt"
         else:
-            model_path = Path(model_path)
+            model_path = Path(model_path).resolve()
+
+        print(f"[CalorieCLIP] Đường dẫn checkpoint: {model_path}")
 
         # Nếu đường dẫn trỏ vào thư mục (không phải file),
         # tìm file calorie_clip.pt hoặc best_model.pt bên trong
