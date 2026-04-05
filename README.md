@@ -1,4 +1,4 @@
-# AI-project
+# Object detection (food calories recognition)
 
 #model
 https://huggingface.co/jc-builds/CalorieCLIP/tree/main
