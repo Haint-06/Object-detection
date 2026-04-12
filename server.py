@@ -1,3 +1,4 @@
+import gc
 import io
 import torch
 import gdown
@@ -44,8 +45,18 @@ async def lifespan(app: FastAPI):
     print(f"\n[CalorieCLIP] Đang tải mô hình trên {device}...")
     model = CalorieCLIP.from_pretrained(model_path=_WEIGHTS, device=device)
 
+    if device == "cpu":
+        torch.set_num_threads(4)  # Giới hạn số thread CPU để tránh quá tải
+    else:
+        model = model.half()
+
     detector = IngredientDetector()
     print("[CalorieCLIP] Sẵn sàng! Truy cập http://localhost:8000\n")
+
+    gc.collect()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+
     yield
 
 # ── Khởi tạo app
