@@ -107,7 +107,12 @@ async def predict(file: UploadFile = File(...)):
         "unit": "kcal"
     }
 
-
 @app.get("/health")
 async def health():
     return {"status": "ok"}
+
+@app.get("/warmup")
+async def warmup():
+    get_model()
+    get_detector()
+    return {"status": "ready"}
