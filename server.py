@@ -1,6 +1,7 @@
 import io
 import torch
 import gdown
+import threading
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -16,6 +17,7 @@ _WEIGHTS = _HERE / "app" / "services" / "weights" / "calorie_clip.pt"
 MODEL_URL = "https://drive.google.com/uc?id=1JxC7f7nu41MtrqWgrkk-VgQBqhGF77Wk"
 
 app = FastAPI(title="CalorieCLIP API", version="1.0.0")
+threading.Thread(target=lambda: preload_models(), daemon=True).start()
 
 model = None
 detector = None
@@ -56,6 +58,13 @@ def get_detector():
 
     return detector
 
+def preload_models():
+    try:
+        print("đang preload models...")
+        get_model()
+        get_detector()
+    except Exception as e:
+        print(f"Error occurred while preloading models: {e}")
 
 app.add_middleware(
     CORSMiddleware,
@@ -110,9 +119,3 @@ async def predict(file: UploadFile = File(...)):
 @app.get("/health")
 async def health():
     return {"status": "ok"}
-
-@app.get("/warmup")
-async def warmup():
-    get_model()
-    get_detector()
-    return {"status": "ready"}
